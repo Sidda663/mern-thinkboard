@@ -4,35 +4,42 @@ import dotenv from 'dotenv';
 import notesRoute from "./routes/notesRoute.js";
 import { connectDB } from "./config/db.js";
 import rateLimiter from './middleware/rateLimiter.js';
-
+import path from 'path';
 dotenv.config();
- // Log the MongoDB URI for debugging
-
 
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5001; // Changed to 5001 to avoid EADDRINUSE
+const __dirname = path.resolve();
 
-app.use(
-    cors({
-    origin:"http://localhost:5173", 
-    credentials: true, // Allow cookies to be sent with requests
-    })
-);
-app.use(express.json()); // Middleware to parse JSON bodies
+if (process.env.NODE_ENV !== "production") {
+    app.use(
+        cors({
+            origin: "http://localhost:5173",
+            credentials: true,
+        })
+    );
+}
+
+app.use(express.json());
 app.use(rateLimiter);
 
-
-app.use((req,res,next) => {
-    console.log(`request method is  ${req.method} $ Req URL is ${req.url}`);
+app.use((req, res, next) => {
+    console.log(`request method is ${req.method} $ Req URL is ${req.url}`);
     next();
-
-
-})
+});
 
 app.use("/api/notes", notesRoute);
 
+if (process.env.NODE_ENV === "production") {
+    app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
-connectDB().then(() => {})
-app.listen(PORT,() => {
-console.log("Server started on port: ", PORT);
+    app.get("*", (req, res) => {
+        res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+    });
+}
+
+connectDB().then(() => {
+    app.listen(PORT, () => {
+        console.log("Server started on port: ", PORT);
+    });
 });
